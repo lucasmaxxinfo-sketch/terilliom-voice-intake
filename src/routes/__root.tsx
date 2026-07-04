@@ -107,6 +107,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:title", content: "Terilliom Intake — Voice-first inventory capture" },
+      { name: "twitter:title", content: "Terilliom Intake — Voice-first inventory capture" },
+      { name: "description", content: "Terilliom Intake is an offline-first, voice-driven inventory intake app for workshops, warehouses and service businesses." },
+      { property: "og:description", content: "Terilliom Intake is an offline-first, voice-driven inventory intake app for workshops, warehouses and service businesses." },
+      { name: "twitter:description", content: "Terilliom Intake is an offline-first, voice-driven inventory intake app for workshops, warehouses and service businesses." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f2ab16f4-61a7-4b9b-8fe6-d213f90653bb/id-preview-bbad87c8--fbc828ea-68f4-46b9-9d23-46ac5d98435d.lovable.app-1783151506893.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f2ab16f4-61a7-4b9b-8fe6-d213f90653bb/id-preview-bbad87c8--fbc828ea-68f4-46b9-9d23-46ac5d98435d.lovable.app-1783151506893.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
