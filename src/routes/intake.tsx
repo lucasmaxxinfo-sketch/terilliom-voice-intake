@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Mic, MicOff, RotateCcw, Square } from "lucide-react";
+import { ExternalLink, Mic, MicOff, RotateCcw, Square } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell/AppShell";
@@ -18,16 +18,54 @@ export const Route = createFileRoute("/intake")({
 
 function IntakeScreen() {
   const [ready, setReady] = useState(false);
+  const [inIframe, setInIframe] = useState(false);
+  const [permission, setPermission] = useState<PermissionState | "unknown">("unknown");
 
   useEffect(() => {
     registerDefaultVoiceService();
     setReady(true);
+    try {
+      setInIframe(window.top !== window.self);
+    } catch {
+      setInIframe(true);
+    }
+    if (navigator.permissions?.query) {
+      navigator.permissions
+        .query({ name: "microphone" as PermissionName })
+        .then((s) => {
+          setPermission(s.state);
+          s.onchange = () => setPermission(s.state);
+        })
+        .catch(() => setPermission("unknown"));
+    }
   }, []);
 
   return (
     <AppShell title="New intake" subtitle="Voice-driven capture">
+      {inIframe && permission === "denied" ? <PreviewMicBanner /> : null}
       {ready ? <VoicePanel /> : null}
     </AppShell>
+  );
+}
+
+function PreviewMicBanner() {
+  return (
+    <div className="mb-4 rounded-3xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+      <p className="font-semibold text-amber-100">Microphone is blocked in this preview.</p>
+      <p className="mt-1 leading-relaxed">
+        Browsers deny microphone access to embedded iframes. Open the app in its
+        own tab to record voice.
+      </p>
+      <a
+        href={typeof window !== "undefined" ? window.location.href : "#"}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-2xl bg-amber-400 px-3 text-xs font-semibold text-amber-950 transition-colors hover:bg-amber-300"
+      >
+        <ExternalLink className="h-3.5 w-3.5" />
+        Open in new tab
+      </a>
+    </div>
   );
 }
 
