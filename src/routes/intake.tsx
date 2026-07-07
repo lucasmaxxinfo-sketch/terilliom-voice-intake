@@ -40,41 +40,50 @@ function IntakeScreen() {
     }
   }, []);
 
+  const micBlocked = permission === "denied";
+
   return (
     <AppShell title="New intake" subtitle="Voice-driven capture">
-      {inIframe && permission === "denied" ? <PreviewMicBanner /> : null}
-      {ready ? <VoicePanel /> : null}
+      {micBlocked ? <MicBlockedBanner inIframe={inIframe} /> : null}
+      {ready ? <VoicePanel micBlocked={micBlocked} /> : null}
     </AppShell>
   );
 }
 
-function PreviewMicBanner() {
+function MicBlockedBanner({ inIframe }: { inIframe: boolean }) {
+  const title = inIframe
+    ? "Microphone is blocked in this preview."
+    : "Microphone access is blocked.";
+  const message = inIframe
+    ? "Browsers deny microphone access to embedded previews. Open the app in its own tab to record voice."
+    : "Allow microphone access in the browser settings, then reload this screen.";
+
   return (
     <div className="mb-4 rounded-3xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
-      <p className="font-semibold text-amber-100">Microphone is blocked in this preview.</p>
-      <p className="mt-1 leading-relaxed">
-        Browsers deny microphone access to embedded iframes. Open the app in its
-        own tab to record voice.
-      </p>
-      <a
-        href={typeof window !== "undefined" ? window.location.href : "#"}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-2xl bg-amber-400 px-3 text-xs font-semibold text-amber-950 transition-colors hover:bg-amber-300"
-      >
-        <ExternalLink className="h-3.5 w-3.5" />
-        Open in new tab
-      </a>
+      <p className="font-semibold text-amber-100">{title}</p>
+      <p className="mt-1 leading-relaxed">{message}</p>
+      {inIframe ? (
+        <a
+          href={typeof window !== "undefined" ? window.location.href : "#"}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-2xl bg-amber-400 px-3 text-xs font-semibold text-amber-950 transition-colors hover:bg-amber-300"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Open in new tab
+        </a>
+      ) : null}
     </div>
   );
 }
 
-function VoicePanel() {
+function VoicePanel({ micBlocked }: { micBlocked: boolean }) {
   const { status, available, finalText, interimText, error, start, stop, cancel, reset } =
     useVoice();
   const listening = status === "listening";
 
   const handleToggle = () => {
+    if (micBlocked) return;
     if (listening) {
       void stop();
     } else {
@@ -82,7 +91,9 @@ function VoicePanel() {
     }
   };
 
-  const statusLabel = !available
+  const statusLabel = micBlocked
+    ? "Microphone access is blocked. Open in a new tab or allow microphone access."
+    : !available
     ? "Voice recognition is not supported in this browser."
     : error
       ? error
@@ -98,7 +109,7 @@ function VoicePanel() {
         <button
           type="button"
           onClick={handleToggle}
-          disabled={!available}
+          disabled={!available || micBlocked}
           aria-pressed={listening}
           aria-label={listening ? "Stop listening" : "Start listening"}
           className={[

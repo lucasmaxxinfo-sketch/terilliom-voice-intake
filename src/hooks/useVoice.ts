@@ -47,16 +47,28 @@ export function useVoice(): UseVoiceState {
 
   const start = useCallback(async () => {
     setError(null);
-    await service.start({ continuous: true, interimResults: true });
+    try {
+      await service.start({ continuous: true, interimResults: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Voice capture could not start.");
+    }
   }, [service]);
 
   const stop = useCallback(async () => {
-    await service.stop();
+    try {
+      await service.stop();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Voice capture could not stop.");
+    }
   }, [service]);
 
   const cancel = useCallback(async () => {
-    await service.cancel();
-    setInterimText("");
+    try {
+      await service.cancel();
+      setInterimText("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Voice capture could not be cleared.");
+    }
   }, [service]);
 
   const reset = useCallback(() => {

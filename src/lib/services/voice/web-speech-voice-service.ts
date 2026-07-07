@@ -57,6 +57,26 @@ interface SpeechRecognitionErrorEvent extends Event {
   readonly message?: string;
 }
 
+function getSpeechErrorMessage(event: SpeechRecognitionErrorEvent): string {
+  switch (event.error) {
+    case "not-allowed":
+    case "service-not-allowed":
+      return "Microphone access is blocked. Allow microphone access in the browser, then tap the mic again.";
+    case "audio-capture":
+      return "No microphone was found. Connect or enable a microphone, then try again.";
+    case "network":
+      return "Speech recognition needs a network connection for this browser service.";
+    case "no-speech":
+      return "No speech was detected. Tap the mic and speak clearly.";
+    case "aborted":
+      return "Voice capture was stopped.";
+    case "language-not-supported":
+      return "This speech recognition language is not supported by the browser.";
+    default:
+      return event.message || event.error || "Speech recognition could not start.";
+  }
+}
+
 function getRecognitionCtor(): SpeechRecognitionCtor | null {
   if (typeof window === "undefined") return null;
   const w = window as unknown as {
@@ -132,18 +152,27 @@ export class WebSpeechVoiceService implements VoiceService {
     rec.interimResults = options.interimResults ?? true;
     rec.maxAlternatives = 1;
 
-    rec.onstart = () => this.setStatus("listening");
+    rec.onstart = () => {
+      if (this.recognition === rec) this.setStatus("listening");
+    };
     rec.onend = () => {
+      if (this.recognition !== rec) return;
       this.recognition = null;
       if (this._status !== "error") this.setStatus("idle");
     };
     rec.onerror = (event) => {
-      const message = event.message || event.error || "Speech recognition error";
+      if (this.recognition !== rec) return;
+      const message = getSpeechErrorMessage(event);
       const err = new Error(message);
-      this.setStatus("error");
+      if (event.error === "aborted") {
+        this.setStatus("idle");
+      } else {
+        this.setStatus("error");
+      }
       this.emitError(err);
     };
     rec.onresult = (event) => {
+      if (this.recognition !== rec) return;
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const result = event.results[i];
         const alt = result[0];
@@ -159,6 +188,7 @@ export class WebSpeechVoiceService implements VoiceService {
 
     this.recognition = rec;
     try {
+      this.setStatus("processing");
       rec.start();
     } catch (e) {
       this.recognition = null;
