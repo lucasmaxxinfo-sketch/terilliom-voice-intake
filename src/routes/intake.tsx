@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Mic, Sparkles } from "lucide-react";
+import { Mic, MicOff, RotateCcw, Square } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell/AppShell";
-import { EmptyState } from "@/components/ui-kit/EmptyState";
-import { getVoiceService } from "@/lib/services/voice/voice-service";
+import { useVoice } from "@/hooks/useVoice";
+import { registerDefaultVoiceService } from "@/lib/services/voice/register";
 
 export const Route = createFileRoute("/intake")({
   head: () => ({
@@ -16,31 +17,110 @@ export const Route = createFileRoute("/intake")({
 });
 
 function IntakeScreen() {
-  const voice = getVoiceService();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    registerDefaultVoiceService();
+    setReady(true);
+  }, []);
 
   return (
     <AppShell title="New intake" subtitle="Voice-driven capture">
-      <div className="mb-8 flex flex-col items-center pt-4">
+      {ready ? <VoicePanel /> : null}
+    </AppShell>
+  );
+}
+
+function VoicePanel() {
+  const { status, available, finalText, interimText, error, start, stop, cancel, reset } =
+    useVoice();
+  const listening = status === "listening";
+
+  const handleToggle = () => {
+    if (listening) {
+      void stop();
+    } else {
+      void start();
+    }
+  };
+
+  const statusLabel = !available
+    ? "Voice recognition is not supported in this browser."
+    : error
+      ? error
+      : listening
+        ? "Listening — speak now."
+        : finalText
+          ? "Paused. Tap the mic to keep going."
+          : "Tap the mic to start capturing.";
+
+  return (
+    <>
+      <div className="mb-6 flex flex-col items-center pt-4">
         <button
           type="button"
-          disabled
-          aria-label="Start listening"
-          className="flex h-40 w-40 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-elevation-3 transition-transform disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={handleToggle}
+          disabled={!available}
+          aria-pressed={listening}
+          aria-label={listening ? "Stop listening" : "Start listening"}
+          className={[
+            "relative flex h-40 w-40 items-center justify-center rounded-full text-primary-foreground shadow-elevation-3 transition-transform",
+            "disabled:cursor-not-allowed disabled:opacity-60",
+            listening
+              ? "bg-red-500 scale-105 animate-pulse"
+              : "bg-primary hover:scale-[1.02] active:scale-95",
+          ].join(" ")}
         >
-          <Mic className="h-16 w-16" strokeWidth={2.2} />
+          {!available ? (
+            <MicOff className="h-16 w-16" strokeWidth={2.2} />
+          ) : listening ? (
+            <Square className="h-14 w-14" strokeWidth={2.4} fill="currentColor" />
+          ) : (
+            <Mic className="h-16 w-16" strokeWidth={2.2} />
+          )}
         </button>
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          {voice.available
-            ? "Tap and hold to describe the item."
-            : "Voice capture will activate once a provider is configured."}
+        <p
+          role="status"
+          aria-live="polite"
+          className={`mt-6 text-center text-sm ${error ? "text-red-400" : "text-muted-foreground"}`}
+        >
+          {statusLabel}
         </p>
       </div>
 
-      <EmptyState
-        icon={Sparkles}
-        title="Conversation ready"
-        description="Extracted fields, confidence scores and follow-up questions will appear here once the AI and voice services are connected."
-      />
-    </AppShell>
+      <div className="rounded-3xl border border-border bg-surface p-4 md:p-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-foreground">Transcript</h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void cancel();
+                reset();
+              }}
+              disabled={!finalText && !interimText && status === "idle"}
+              className="inline-flex h-9 items-center gap-1.5 rounded-2xl border border-border px-3 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Clear
+            </button>
+          </div>
+        </div>
+        <div className="min-h-32 whitespace-pre-wrap break-words text-base leading-relaxed text-foreground">
+          {finalText ? <span>{finalText}</span> : null}
+          {interimText ? (
+            <span className="text-muted-foreground">
+              {finalText ? " " : ""}
+              {interimText}
+            </span>
+          ) : null}
+          {!finalText && !interimText ? (
+            <span className="text-muted-foreground">
+              Your words will appear here as you speak.
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </>
   );
 }
