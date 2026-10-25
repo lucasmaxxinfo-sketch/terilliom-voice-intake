@@ -215,6 +215,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             lower.startsWith("open drive") -> openApp("com.google.android.apps.docs", "Google Drive")
             lower.startsWith("open chrome") -> openApp("com.android.chrome", "Chrome")
             lower.startsWith("text ") || lower.startsWith("sms ") -> prepareSms(command)
+            lower.startsWith("check replies from ") -> checkSmsReplies(command.substringAfter("from ").trim())
             lower.startsWith("email to ") -> prepareEmail(command)
             lower == "choose files" || lower == "attach file" || lower.startsWith("attach ") -> chooseFiles()
             lower.startsWith("tap ") -> {
@@ -330,6 +331,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 val parts = smsManager.divideMessage(body)
                 if (parts.size > 1) smsManager.sendMultipartTextMessage(phone, null, parts, null, null)
                 else smsManager.sendTextMessage(phone, null, body, null, null)
+                prefs.edit().putLong("sms_sent_at_" + phone, System.currentTimeMillis()).apply()
                 if (expiryDays != null && expiryDays > 0) {
                     scheduleReminderQuiet("Check reply from " + recipient + "; follow-up deadline reached", expiryDays * 86_400_000L)
                 }
@@ -339,6 +341,39 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(phone))).putExtra("sms_body", body))
             }
         }
+    }
+
+    private fun checkSmsReplies(recipient: String) {
+        if (checkSelfPermission(Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.READ_SMS), 107)
+            say("Allow SMS access, then repeat the instruction."); return
+        }
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), 103)
+            say("Allow Contacts access, then repeat the instruction."); return
+        }
+        val contacts = contentResolver.query(
+            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
+            android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " LIKE ?",
+            arrayOf("%" + recipient + "%"), null)
+        var phone: String? = null
+        contacts?.use { if (it.count == 1 && it.moveToFirst()) phone = it.getString(0) }
+        if (phone == null) { say("I couldn't match that name to exactly one contact."); return }
+        val sentAt = prefs.getLong("sms_sent_at_" + phone, 0L)
+        val selection = if (sentAt > 0L) "address = ? AND date > ?" else "address = ?"
+        val args = if (sentAt > 0L) arrayOf(phone, sentAt.toString()) else arrayOf(phone)
+        val cursor = contentResolver.query(android.provider.Telephony.Sms.Inbox.CONTENT_URI,
+            arrayOf("body", "date"), selection, args, "date DESC")
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val body = it.getString(0) ?: "Message received"
+                val date = java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it.getLong(1)))
+                say("New reply from " + recipient + " at " + date + ": " + body)
+                return
+            }
+        }
+        say("No new SMS reply found from " + recipient + ".")
     }
 
     private fun prepareEmail(command: String) {
