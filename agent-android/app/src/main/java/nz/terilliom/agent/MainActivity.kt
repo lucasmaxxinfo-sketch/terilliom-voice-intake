@@ -272,16 +272,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             lower.startsWith("what's on today") || lower.startsWith("today's calendar") || lower.startsWith("what's next") -> showNextCalendarEvent()
             lower.startsWith("show tasks") || lower == "today's tasks" -> showTasks()
             lower.startsWith("show notes") -> showNotes()
-            lower.startsWith("add calendar event ") || lower.startsWith("schedule ") -> {
-                val details = command.substringAfter("event ").takeIf { lower.startsWith("add calendar event ") }
-                    ?: command.removePrefix("schedule ").trim()
-                launchOrConfirm("Open Calendar to add: $details?") {
-                    val intent = Intent(Intent.ACTION_INSERT).setData(CalendarContract.Events.CONTENT_URI)
-                        .putExtra(CalendarContract.Events.TITLE, details)
-                    startActivity(intent)
-                    say("Calendar opened. Check the event details and save it.")
-                }
-            }
+            lower.startsWith("add calendar event ") || lower.startsWith("schedule ") -> scheduleCalendarEvent(command)
             lower == "yes" || lower == "yep" || lower == "ok" || lower == "confirm" || lower == "send it" -> {
                 val action = pendingAction
                 if (action != null) { pendingAction = null; action.invoke() } else say("Nothing is waiting for confirmation.")
@@ -360,6 +351,82 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         pendingDescription = description
         pendingAction = action
         say("$description Say OK to continue, or cancel.")
+    }
+
+    private fun scheduleCalendarEvent(command: String) {
+        if (checkSelfPermission(Manifest.permission.WRITE_CALENDAR) != PackageManager.PERMISSION_GRANTED ||
+            checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR), 105)
+            say("Allow Calendar access, then repeat the instruction."); return
+        }
+        val timeMatch = Regex("(?i)\\bat\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\b").find(command)
+        if (timeMatch == null) {
+            val title = command.removePrefix("schedule ").removePrefix("add calendar event ").trim()
+            launchOrConfirm("Open Calendar to finish scheduling " + title + "?") {
+                startActivity(Intent(Intent.ACTION_INSERT).setData(CalendarContract.Events.CONTENT_URI)
+                    .putExtra(CalendarContract.Events.TITLE, title))
+                say("Calendar opened. Add the date and time, then save.")
+            }
+            return
+        }
+        val eventTime = java.util.Calendar.getInstance()
+        val dateText = command.lowercase(Locale.getDefault())
+        when {
+            dateText.contains("tomorrow") -> eventTime.add(java.util.Calendar.DAY_OF_YEAR, 1)
+            dateText.contains("monday") -> moveToWeekday(eventTime, java.util.Calendar.MONDAY)
+            dateText.contains("tuesday") -> moveToWeekday(eventTime, java.util.Calendar.TUESDAY)
+            dateText.contains("wednesday") -> moveToWeekday(eventTime, java.util.Calendar.WEDNESDAY)
+            dateText.contains("thursday") -> moveToWeekday(eventTime, java.util.Calendar.THURSDAY)
+            dateText.contains("friday") -> moveToWeekday(eventTime, java.util.Calendar.FRIDAY)
+            dateText.contains("saturday") -> moveToWeekday(eventTime, java.util.Calendar.SATURDAY)
+            dateText.contains("sunday") -> moveToWeekday(eventTime, java.util.Calendar.SUNDAY)
+        }
+        var hour = timeMatch.groupValues[1].toInt()
+        val minute = timeMatch.groupValues[2].ifBlank { "0" }.toInt()
+        val meridiem = timeMatch.groupValues[3].lowercase()
+        if (meridiem == "pm" && hour < 12) hour += 12
+        if (meridiem == "am" && hour == 12) hour = 0
+        eventTime.set(java.util.Calendar.HOUR_OF_DAY, hour)
+        eventTime.set(java.util.Calendar.MINUTE, minute)
+        eventTime.set(java.util.Calendar.SECOND, 0)
+        eventTime.set(java.util.Calendar.MILLISECOND, 0)
+        val title = command.replaceFirst(Regex("(?i)^(schedule|add calendar event)\\s+"), "")
+            .replace(Regex("(?i)\\b(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b"), "")
+            .replace(Regex("(?i)\\bat\\s+\\d{1,2}(?::\\d{2})?\\s*(am|pm)\\b"), "")
+            .replace(Regex("\\s+"), " ").trim()
+        launchOrConfirm("Add " + title + " to Calendar for " +
+            java.text.DateFormat.getDateTimeInstance().format(eventTime.time) + "?") {
+            val calendars = contentResolver.query(CalendarContract.Calendars.CONTENT_URI,
+                arrayOf(CalendarContract.Calendars._ID),
+                CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL + ">=?",
+                arrayOf(CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR.toString()), null)
+            var calendarId: Long? = null
+            calendars?.use { if (it.moveToFirst()) calendarId = it.getLong(0) }
+            if (calendarId == null) {
+                startActivity(Intent(Intent.ACTION_INSERT).setData(CalendarContract.Events.CONTENT_URI)
+                    .putExtra(CalendarContract.Events.TITLE, title)
+                    .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, eventTime.timeInMillis)
+                    .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, eventTime.timeInMillis + 30 * 60 * 1000L))
+                say("Calendar opened with the event details. Save it to finish.")
+                return@launchOrConfirm
+            }
+            val values = android.content.ContentValues().apply {
+                put(CalendarContract.Events.CALENDAR_ID, calendarId!!)
+                put(CalendarContract.Events.TITLE, title)
+                put(CalendarContract.Events.DTSTART, eventTime.timeInMillis)
+                put(CalendarContract.Events.DTEND, eventTime.timeInMillis + 30 * 60 * 1000L)
+                put(CalendarContract.Events.EVENT_TIMEZONE, java.util.TimeZone.getDefault().id)
+            }
+            val created = contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
+            if (created != null) say("Confirmed. Calendar event added.")
+            else say("Calendar did not confirm the event. Open Calendar and check.")
+        }
+    }
+
+    private fun moveToWeekday(calendar: java.util.Calendar, weekday: Int) {
+        var delta = (weekday - calendar.get(java.util.Calendar.DAY_OF_WEEK) + 7) % 7
+        if (delta == 0) delta = 7
+        calendar.add(java.util.Calendar.DAY_OF_YEAR, delta)
     }
 
     private fun showNextCalendarEvent() {
