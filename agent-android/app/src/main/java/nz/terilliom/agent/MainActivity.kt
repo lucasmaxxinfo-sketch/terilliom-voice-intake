@@ -37,6 +37,19 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         buildUi()
         requestPermissionsIfNeeded()
         show("Ready. Say “Oi Agent” to begin, or tap the microphone.")
+        if (intent?.getBooleanExtra("agent_wake_detected", false) == true) {
+            intent.removeExtra("agent_wake_detected")
+            window.decorView.postDelayed({ listen() }, 500)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra("agent_wake_detected", false)) {
+            intent.removeExtra("agent_wake_detected")
+            window.decorView.postDelayed({ listen() }, 500)
+        }
     }
 
     private fun buildUi() {
@@ -74,6 +87,25 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             text = "🎙  OI, AGENT"
             textSize = 18f
             setOnClickListener { listen() }
+        }
+        val wake = Button(this).apply {
+            text = if (prefs.getBoolean("wake_enabled", false)) "Stop wake listening" else "Start wake listening"
+            setOnClickListener {
+                if (prefs.getBoolean("wake_enabled", false)) {
+                    stopService(Intent(this@MainActivity, WakeWordService::class.java))
+                    prefs.edit().putBoolean("wake_enabled", false).apply()
+                    text = "Start wake listening"
+                    say("Wake listening stopped.")
+                } else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    try {
+                        val serviceIntent = Intent(this@MainActivity, WakeWordService::class.java)
+                        if (Build.VERSION.SDK_INT >= 26) startForegroundService(serviceIntent) else startService(serviceIntent)
+                        prefs.edit().putBoolean("wake_enabled", true).apply()
+                        text = "Stop wake listening"
+                        say("Wake listening started. Say Oi Agent.")
+                    } catch (_: Exception) { say("Android blocked background listening. Tap the microphone to speak instead.") }
+                } else { requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 100); say("Allow microphone access, then tap again.") }
+            }
         }
         input = EditText(this).apply {
             hint = "Or type an instruction"
