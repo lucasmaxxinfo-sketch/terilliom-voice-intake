@@ -1,0 +1,1 @@
+<resources><string name="app_name">Agent</string><string name="agent_accessibility_description">Allows Agent to act on visible app controls only after the user enables this service and confirms an action.</string></resources>
