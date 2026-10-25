@@ -208,7 +208,25 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     say("Starting navigation.")
                 }
             }
-            lower.startsWith("open chatgpt") || lower.startsWith("open chat gpt") -> openApp("com.openai.chatgpt", "ChatGPT")
+            lower.startsWith("open chatgpt") || lower.startsWith("open chat gpt") -> {
+                val wantsVoice = lower.contains("voice") || lower.contains("new chat")
+                launchOrConfirm(if (wantsVoice) "Open ChatGPT and try to start voice chat?" else "Open ChatGPT?") {
+                    val launch = packageManager.getLaunchIntentForPackage("com.openai.chatgpt")
+                    if (launch == null) say("ChatGPT isn't installed.")
+                    else {
+                        if (wantsVoice) prefs.edit().putString("ui_command", "tap:Voice").apply()
+                        startActivity(launch)
+                        say(if (wantsVoice) "ChatGPT opened. Trying the visible Voice control." else "ChatGPT opened.")
+                    }
+                }
+            }
+            lower.startsWith("close chatgpt") || lower.startsWith("close chat gpt") || lower == "close this app" -> {
+                launchOrConfirm("Leave the current app and return home?") {
+                    prefs.edit().putString("ui_command", "home").apply()
+                    moveTaskToBack(true)
+                    say("Returning to home.")
+                }
+            }
             lower.startsWith("open maps") -> openApp("com.google.android.apps.maps", "Google Maps")
             lower.startsWith("open gmail") -> openApp("com.google.android.gm", "Gmail")
             lower.startsWith("open calendar") -> openApp("com.google.android.calendar", "Calendar")
