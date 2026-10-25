@@ -27,6 +27,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private val prefs by lazy { getSharedPreferences("agent", Context.MODE_PRIVATE) }
     private var pendingAction: (() -> Unit)? = null
     private var pendingDescription: String = ""
+    private var pendingFiles = mutableListOf<Uri>()
+    private var pendingEmailTo = ""
+    private var pendingEmailSubject = ""
+    private var pendingEmailBody = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -90,7 +94,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             text = "Notes"
             setOnClickListener { showNotes() }
         }
-        listOf<View>(title, subtitle, status, transcript, mic, input, run, tasks, notes).forEach {
+        val files = Button(this).apply {
+            text = "Choose files"
+            setOnClickListener { chooseFiles() }
+        }
+        listOf<View>(title, subtitle, status, transcript, mic, input, run, tasks, notes, files).forEach {
             root.addView(it, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = 10
             })
@@ -138,6 +146,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             transcript.text = spoken
             val command = spoken.replaceFirst(Regex("(?i)^\\s*(oi\\s+)?agent[,: ]*"), "").trim()
             if (command.isNotBlank()) handle(command) else say("Ready.")
+        } else if (requestCode == 102 && resultCode == RESULT_OK && data != null) {
+            val clip = data.clipData
+            if (clip != null) {
+                for (i in 0 until clip.itemCount) pendingFiles.add(clip.getItemAt(i).uri)
+            } else data.data?.let { pendingFiles.add(it) }
+            say("Added " + pendingFiles.size + " file(s).")
         }
     }
 
@@ -163,13 +177,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     say("Starting navigation.")
                 }
             }
-            lower.startsWith("open chatgpt") || lower.startsWith("open chat gpt") -> {
-                launchOrConfirm("Open ChatGPT?") {
-                    val launch = packageManager.getLaunchIntentForPackage("com.openai.chatgpt")
-                    if (launch != null) { startActivity(launch); say("ChatGPT opened. Start voice chat in ChatGPT; I can't reliably press its in-app voice controls yet.") }
-                    else say("ChatGPT isn't installed.")
-                }
-            }
+            lower.startsWith("open chatgpt") || lower.startsWith("open chat gpt") -> openApp("com.openai.chatgpt", "ChatGPT")
+            lower.startsWith("open maps") -> openApp("com.google.android.apps.maps", "Google Maps")
+            lower.startsWith("open gmail") -> openApp("com.google.android.gm", "Gmail")
+            lower.startsWith("open calendar") -> openApp("com.google.android.calendar", "Calendar")
+            lower.startsWith("open drive") -> openApp("com.google.android.apps.docs", "Google Drive")
+            lower.startsWith("open chrome") -> openApp("com.android.chrome", "Chrome")
+            lower.startsWith("text ") || lower.startsWith("sms ") -> prepareSms(command)
+            lower.startsWith("email to ") -> prepareEmail(command)
+            lower == "choose files" || lower == "attach file" || lower.startsWith("attach ") -> chooseFiles()
             lower.startsWith("remind me in ") -> createReminderFromCommand(command)
             lower.startsWith("remind me at ") -> createReminderAt(command)
             lower.startsWith("add task ") || lower.startsWith("task ") -> {
@@ -203,6 +219,69 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
             else -> say("I can take notes, add tasks, set reminders, open ChatGPT, search Maps and start navigation. That action isn't connected yet.")
         }
+    }
+
+    private fun openApp(packageName: String, label: String) {
+        launchOrConfirm("Open " + label + "?") {
+            val launch = packageManager.getLaunchIntentForPackage(packageName)
+            if (launch != null) { startActivity(launch); say(label + " opened.") }
+            else say(label + " isn't installed.")
+        }
+    }
+
+    private fun prepareSms(command: String) {
+        val stripped = command.replaceFirst(Regex("(?i)^(text|sms)\\s+"), "")
+        val recipient = stripped.substringBefore(" saying ").substringBefore(" message ").trim()
+        val body = if (stripped.contains(" saying ", true)) stripped.substringAfter(" saying ")
+                   else if (stripped.contains(" message ", true)) stripped.substringAfter(" message ") else ""
+        if (recipient.isBlank() || body.isBlank()) {
+            say("Use: text Alan saying Hi Alan, please advise on any changes."); return
+        }
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_CONTACTS), 103)
+            say("Allow Contacts access, then repeat the instruction."); return
+        }
+        val cursor = contentResolver.query(
+            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
+            android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " LIKE ?",
+            arrayOf("%" + recipient + "%"), null)
+        var phone: String? = null
+        cursor?.use { if (it.count == 1 && it.moveToFirst()) phone = it.getString(0) }
+        if (phone == null) { say("I couldn't match that name to exactly one contact. Check Contacts first."); return }
+        launchOrConfirm("SMS to " + recipient + ": " + body + ". Open it for final review?") {
+            startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(phone)))
+                .putExtra("sms_body", body))
+            say("Message opened. Check it and tap Send in your messaging app.")
+        }
+    }
+
+    private fun prepareEmail(command: String) {
+        val rest = command.substringAfter("email to ", "")
+        pendingEmailTo = rest.substringBefore(" subject ").trim()
+        pendingEmailSubject = if (rest.contains(" subject ", true)) rest.substringAfter(" subject ").substringBefore(" body ").trim() else ""
+        pendingEmailBody = if (rest.contains(" body ", true)) rest.substringAfter(" body ").trim() else ""
+        if (!pendingEmailTo.contains("@")) { say("Use: email to address subject topic body message."); return }
+        launchOrConfirm("Email to " + pendingEmailTo + " with " + pendingFiles.size + " attachment(s). Open for review?") {
+            val intent = Intent(if (pendingFiles.size > 1) Intent.ACTION_SEND_MULTIPLE else Intent.ACTION_SEND)
+            intent.type = "*/*"
+            intent.putExtra(Intent.EXTRA_EMAIL, arrayOf(pendingEmailTo))
+            intent.putExtra(Intent.EXTRA_SUBJECT, pendingEmailSubject)
+            intent.putExtra(Intent.EXTRA_TEXT, pendingEmailBody)
+            if (pendingFiles.size == 1) intent.putExtra(Intent.EXTRA_STREAM, pendingFiles.first())
+            if (pendingFiles.size > 1) intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(pendingFiles))
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivity(Intent.createChooser(intent, "Review email before sending"))
+            say("Email opened for review. Verify the details and send in your email app.")
+        }
+    }
+
+    private fun chooseFiles() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE); type = "*/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        }
+        startActivityForResult(intent, 102)
     }
 
     private fun launchOrConfirm(description: String, action: () -> Unit) {
