@@ -5,6 +5,9 @@ on:
     paths:
       - 'agent-android/**'
       - '.github/workflows/build-agent-apk.yml'
+concurrency:
+  group: agent-android-apk
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
