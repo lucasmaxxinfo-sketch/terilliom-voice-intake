@@ -16,7 +16,6 @@ import android.speech.tts.TextToSpeech
 import android.view.Gravity
 import android.view.View
 import android.widget.*
-import androidx.core.app.ActivityCompat
 import java.util.Locale
 
 class MainActivity : Activity(), TextToSpeech.OnInitListener {
@@ -109,8 +108,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun requestPermissionsIfNeeded() {
         val wanted = mutableListOf(Manifest.permission.RECORD_AUDIO)
         if (Build.VERSION.SDK_INT >= 33) wanted.add(Manifest.permission.POST_NOTIFICATIONS)
-        val missing = wanted.filter { ActivityCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
-        if (missing.isNotEmpty()) ActivityCompat.requestPermissions(this, missing.toTypedArray(), 100)
+        val missing = wanted.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), 100)
     }
 
     override fun onInit(result: Int) {
@@ -125,7 +124,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun show(text: String) { if (::status.isInitialized) status.text = text }
 
     private fun listen() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissionsIfNeeded(); show("Microphone permission is needed."); return
         }
         try {
@@ -273,8 +272,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         if (recipient.isBlank() || body.isBlank()) {
             say("Use: text Alan saying Hi Alan, please advise on any changes."); return
         }
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_CONTACTS), 103)
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), 103)
             say("Allow Contacts access, then repeat the instruction."); return
         }
         val cursor = contentResolver.query(
