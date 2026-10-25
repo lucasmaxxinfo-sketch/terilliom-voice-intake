@@ -129,7 +129,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             text = "Choose files"
             setOnClickListener { chooseFiles() }
         }
-        listOf<View>(title, subtitle, status, transcript, mic, input, run, tasks, notes, files).forEach {
+        listOf<View>(title, subtitle, status, transcript, mic, wake, input, run, tasks, notes, files).forEach {
             root.addView(it, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = 10
             })
