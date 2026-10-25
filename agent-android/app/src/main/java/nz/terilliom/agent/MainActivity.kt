@@ -221,32 +221,37 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 val target = command.substringAfter("tap ").trim()
                 launchOrConfirm("Tap the visible control named " + target + "?") {
                     prefs.edit().putString("ui_command", "tap:" + target).apply()
-                    say("Tap queued. It will run when the target app reports its screen.")
+                    say("Tap queued.")
+                    moveTaskToBack(true)
                 }
             }
             lower.startsWith("type ") -> {
                 val value = command.substringAfter("type ").trim()
                 launchOrConfirm("Type this into the focused field: " + value + "?") {
                     prefs.edit().putString("ui_command", "type:" + value).apply()
-                    say("Typing queued for the focused field.")
+                    say("Typing queued.")
+                    moveTaskToBack(true)
                 }
             }
             lower == "scroll down" || lower == "scroll up" -> {
                 launchOrConfirm(command + "?") {
                     prefs.edit().putString("ui_command", command).apply()
                     say("Scroll action queued.")
+                    moveTaskToBack(true)
                 }
             }
             lower == "go back" -> {
                 launchOrConfirm("Go back?") {
                     prefs.edit().putString("ui_command", "back").apply()
                     say("Back action queued.")
+                    moveTaskToBack(true)
                 }
             }
             lower == "go home" -> {
                 launchOrConfirm("Return to the home screen?") {
                     prefs.edit().putString("ui_command", "home").apply()
                     say("Home action queued.")
+                    moveTaskToBack(true)
                 }
             }
             lower == "enable accessibility" -> {
