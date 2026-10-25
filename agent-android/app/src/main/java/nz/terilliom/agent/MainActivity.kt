@@ -359,10 +359,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             arrayOf("%" + recipient + "%"), null)
         var phone: String? = null
         contacts?.use { if (it.count == 1 && it.moveToFirst()) phone = it.getString(0) }
-        if (phone == null) { say("I couldn't match that name to exactly one contact."); return }
-        val sentAt = prefs.getLong("sms_sent_at_" + phone, 0L)
+        val resolvedPhone = phone
+        if (resolvedPhone == null) { say("I couldn't match that name to exactly one contact."); return }
+        val sentAt = prefs.getLong("sms_sent_at_" + resolvedPhone, 0L)
         val selection = if (sentAt > 0L) "address = ? AND date > ?" else "address = ?"
-        val args = if (sentAt > 0L) arrayOf(phone, sentAt.toString()) else arrayOf(phone)
+        val args: Array<String> = if (sentAt > 0L) arrayOf(resolvedPhone, sentAt.toString()) else arrayOf(resolvedPhone)
         val cursor = contentResolver.query(android.provider.Telephony.Sms.Inbox.CONTENT_URI,
             arrayOf("body", "date"), selection, args, "date DESC")
         cursor?.use {
