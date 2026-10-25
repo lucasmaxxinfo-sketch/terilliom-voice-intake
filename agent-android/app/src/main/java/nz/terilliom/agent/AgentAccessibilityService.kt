@@ -7,6 +7,8 @@ import android.os.Bundle
 
 class AgentAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        val root = rootInActiveWindow ?: return
+        if (root.packageName == packageName) return
         val prefs = getSharedPreferences("agent", MODE_PRIVATE)
         val command = prefs.getString("ui_command", "").orEmpty()
         if (command.isBlank()) return
