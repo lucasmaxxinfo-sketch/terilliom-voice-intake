@@ -9,7 +9,7 @@ Voice-first Android personal assistant foundation, targeted at Android 13 and th
 - Scheduled reminder notifications by relative delay or clock time.
 - Read the next event from the Android calendar after permission is granted.
 - Google Maps address search and turn-by-turn navigation intents.
-- Launch common apps: ChatGPT, Maps, Gmail, Calendar, Drive and Chrome.
+- Launch common apps: ChatGPT, Maps, Gmail, Calendar, Drive and Chrome; optionally attempt to tap ChatGPT's visible Voice control.
 - Contact lookup and SMS sending only after explicit confirmation; SMS is submitted to the mobile network.
 - Optional inbox reply check for a matched contact, with a follow-up reminder when the SMS includes “expires in N days”.
 - Email composition with files selected through Android's document picker.
@@ -27,6 +27,6 @@ For wake listening, tap **Start wake listening** and keep the persistent notific
 - SMS sends require the Android SMS permission and explicit confirmation. “Submitted” means handed to Android's SMS service, not guaranteed delivered.
 - Email opens as a draft for final review; Agent cannot verify that the email was sent.
 - Direct Google OAuth integrations for full Calendar/Drive/Gmail operations, reading replies, reliable workflow memory, recurring schedules and verified send status are not yet connected.
-- Opening ChatGPT does not automatically start its internal voice session; there is no stable public Android intent for that control.
+- ChatGPT voice startup uses best-effort accessibility tapping because there is no stable public Android intent for its internal voice session; verify the screen.
 
 No API keys or secrets are included.
