@@ -295,8 +295,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun prepareSms(command: String) {
         val stripped = command.replaceFirst(Regex("(?i)^(text|sms)\\s+"), "")
         val recipient = stripped.substringBefore(" saying ").substringBefore(" message ").trim()
-        val body = if (stripped.contains(" saying ", true)) stripped.substringAfter(" saying ")
-                   else if (stripped.contains(" message ", true)) stripped.substringAfter(" message ") else ""
+        val rawBody = if (stripped.contains(" saying ", true)) stripped.substringAfter(" saying ")
+                      else if (stripped.contains(" message ", true)) stripped.substringAfter(" message ") else ""
+        val expiryMatch = Regex("(?i)\\b(?:expires?|deadline) in (\\d+) days?\\b").find(rawBody)
+        val expiryDays = expiryMatch?.groupValues?.get(1)?.toLongOrNull()
+        val body = if (expiryMatch != null) rawBody.replace(expiryMatch.value, "").trim() else rawBody.trim()
         if (recipient.isBlank() || body.isBlank()) {
             say("Use: text Alan saying Hi Alan, please advise on any changes."); return
         }
@@ -322,7 +325,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 val parts = smsManager.divideMessage(body)
                 if (parts.size > 1) smsManager.sendMultipartTextMessage(phone, null, parts, null, null)
                 else smsManager.sendTextMessage(phone, null, body, null, null)
-                say("SMS submitted to the mobile network.")
+                if (expiryDays != null && expiryDays > 0) {
+                    scheduleReminderQuiet("Check reply from " + recipient + "; follow-up deadline reached", expiryDays * 86_400_000L)
+                }
+                say(if (expiryDays != null) "SMS submitted. Follow-up reminder set." else "SMS submitted to the mobile network.")
             } catch (_: Exception) {
                 say("SMS could not be sent. Opening the message draft instead.")
                 startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(phone))).putExtra("sms_body", body))
@@ -499,12 +505,16 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun scheduleReminder(task: String, delay: Long) {
+        scheduleReminderQuiet(task, delay)
+        say("Reminder set.")
+    }
+
+    private fun scheduleReminderQuiet(task: String, delay: Long) {
         val intent = Intent(this, ReminderReceiver::class.java).putExtra("text", task)
         val pending = PendingIntent.getBroadcast(this, (System.currentTimeMillis() % Int.MAX_VALUE).toInt(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val alarm = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delay, pending)
-        say("Reminder set.")
     }
 
     override fun onDestroy() {
