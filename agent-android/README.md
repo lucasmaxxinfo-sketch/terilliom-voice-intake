@@ -10,7 +10,8 @@ Voice-first Android personal assistant foundation, targeted at Android 13 and th
 - Read the next event from the Android calendar after permission is granted.
 - Google Maps address search and turn-by-turn navigation intents.
 - Launch common apps: ChatGPT, Maps, Gmail, Calendar, Drive and Chrome.
-- Contact lookup and SMS draft creation with an explicit confirmation and final review in the messaging app.
+- Contact lookup and SMS sending only after explicit confirmation; SMS is submitted to the mobile network.
+- Optional inbox reply check for a matched contact, with a follow-up reminder when the SMS includes “expires in N days”.
 - Email composition with files selected through Android's document picker.
 - Optional accessibility service for tapping visible controls, typing into a focused field, scrolling and back/home after the user enables it in Android settings.
 
@@ -23,7 +24,8 @@ For wake listening, tap **Start wake listening** and keep the persistent notific
 ## Still not fully autonomous
 - Wake-word recognition depends on Android's speech recognizer and is not a dedicated offline wake-word engine; availability, battery policy and recognition reliability vary by device.
 - Accessibility control is best-effort. Apps can change layouts, hide controls or block automation. Use “tap [visible label]” only when the intended app is in the foreground.
-- SMS and email are opened as drafts for final review. Agent does not claim they were sent.
+- SMS sends require the Android SMS permission and explicit confirmation. “Submitted” means handed to Android's SMS service, not guaranteed delivered.
+- Email opens as a draft for final review; Agent cannot verify that the email was sent.
 - Direct Google OAuth integrations for full Calendar/Drive/Gmail operations, reading replies, reliable workflow memory, recurring schedules and verified send status are not yet connected.
 - Opening ChatGPT does not automatically start its internal voice session; there is no stable public Android intent for that control.
 
