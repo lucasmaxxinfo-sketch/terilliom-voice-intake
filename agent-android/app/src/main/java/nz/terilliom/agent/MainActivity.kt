@@ -186,6 +186,42 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             lower.startsWith("text ") || lower.startsWith("sms ") -> prepareSms(command)
             lower.startsWith("email to ") -> prepareEmail(command)
             lower == "choose files" || lower == "attach file" || lower.startsWith("attach ") -> chooseFiles()
+            lower.startsWith("tap ") -> {
+                val target = command.substringAfter("tap ").trim()
+                launchOrConfirm("Tap the visible control named " + target + "?") {
+                    prefs.edit().putString("ui_command", "tap:" + target).apply()
+                    say("Tap queued. It will run when the target app reports its screen.")
+                }
+            }
+            lower.startsWith("type ") -> {
+                val value = command.substringAfter("type ").trim()
+                launchOrConfirm("Type this into the focused field: " + value + "?") {
+                    prefs.edit().putString("ui_command", "type:" + value).apply()
+                    say("Typing queued for the focused field.")
+                }
+            }
+            lower == "scroll down" || lower == "scroll up" -> {
+                launchOrConfirm(command + "?") {
+                    prefs.edit().putString("ui_command", command).apply()
+                    say("Scroll action queued.")
+                }
+            }
+            lower == "go back" -> {
+                launchOrConfirm("Go back?") {
+                    prefs.edit().putString("ui_command", "back").apply()
+                    say("Back action queued.")
+                }
+            }
+            lower == "go home" -> {
+                launchOrConfirm("Return to the home screen?") {
+                    prefs.edit().putString("ui_command", "home").apply()
+                    say("Home action queued.")
+                }
+            }
+            lower == "enable accessibility" -> {
+                startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                say("Enable Agent under installed accessibility services, then return here.")
+            }
             lower.startsWith("remind me in ") -> createReminderFromCommand(command)
             lower.startsWith("remind me at ") -> createReminderAt(command)
             lower.startsWith("add task ") || lower.startsWith("task ") -> {
