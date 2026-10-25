@@ -304,6 +304,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), 103)
             say("Allow Contacts access, then repeat the instruction."); return
         }
+        if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.SEND_SMS), 106)
+            say("Allow SMS permission, then repeat the instruction."); return
+        }
         val cursor = contentResolver.query(
             android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
             arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
@@ -312,10 +316,17 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         var phone: String? = null
         cursor?.use { if (it.count == 1 && it.moveToFirst()) phone = it.getString(0) }
         if (phone == null) { say("I couldn't match that name to exactly one contact. Check Contacts first."); return }
-        launchOrConfirm("SMS to " + recipient + ": " + body + ". Open it for final review?") {
-            startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(phone)))
-                .putExtra("sms_body", body))
-            say("Message opened. Check it and tap Send in your messaging app.")
+        launchOrConfirm("SMS to " + recipient + ": " + body + ". Say OK to send now?") {
+            try {
+                val smsManager = if (Build.VERSION.SDK_INT >= 31) getSystemService(android.telephony.SmsManager::class.java) else android.telephony.SmsManager.getDefault()
+                val parts = smsManager.divideMessage(body)
+                if (parts.size > 1) smsManager.sendMultipartTextMessage(phone, null, parts, null, null)
+                else smsManager.sendTextMessage(phone, null, body, null, null)
+                say("SMS submitted to the mobile network.")
+            } catch (_: Exception) {
+                say("SMS could not be sent. Opening the message draft instead.")
+                startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(phone))).putExtra("sms_body", body))
+            }
         }
     }
 
