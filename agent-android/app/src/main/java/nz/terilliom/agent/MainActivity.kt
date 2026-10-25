@@ -265,6 +265,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 saveList("notes", note)
                 say("Noted.")
             }
+            lower.startsWith("add weekly task ") -> {
+                saveList("weekly_tasks", command.substringAfter("add weekly task ").trim()); say("Weekly task saved.")
+            }
+            lower.startsWith("show weekly tasks") -> say(prefs.getString("weekly_tasks", "").takeUnless { it.isNullOrBlank() } ?: "No weekly tasks saved.")
+            lower.startsWith("what's on today") || lower.startsWith("today's calendar") || lower.startsWith("what's next") -> showNextCalendarEvent()
             lower.startsWith("show tasks") || lower == "today's tasks" -> showTasks()
             lower.startsWith("show notes") -> showNotes()
             lower.startsWith("add calendar event ") || lower.startsWith("schedule ") -> {
@@ -355,6 +360,31 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         pendingDescription = description
         pendingAction = action
         say("$description Say OK to continue, or cancel.")
+    }
+
+    private fun showNextCalendarEvent() {
+        if (checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.READ_CALENDAR), 104)
+            say("Allow Calendar access, then ask again."); return
+        }
+        val now = System.currentTimeMillis()
+        val end = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 23); set(java.util.Calendar.MINUTE, 59); set(java.util.Calendar.SECOND, 59)
+        }.timeInMillis
+        val projection = arrayOf(CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART)
+        val cursor = contentResolver.query(
+            CalendarContract.Events.CONTENT_URI, projection,
+            CalendarContract.Events.DTSTART + ">=? AND " + CalendarContract.Events.DTSTART + "<=?",
+            arrayOf(now.toString(), end.toString()), CalendarContract.Events.DTSTART + " ASC")
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val title = it.getString(0) ?: "Untitled event"
+                val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(it.getLong(1)))
+                say("Next today: " + title + " at " + time + ".")
+                return
+            }
+        }
+        say("No upcoming calendar events found for today.")
     }
 
     private fun saveList(key: String, value: String) {
