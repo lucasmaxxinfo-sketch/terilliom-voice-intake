@@ -279,10 +279,22 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
             lower.startsWith("remind me in ") -> createReminderFromCommand(command)
             lower.startsWith("remind me at ") -> createReminderAt(command)
+            lower.startsWith("complete weekly task ") || lower.startsWith("delete weekly task ") -> {
+                val complete = lower.startsWith("complete")
+                val number = command.substringAfterLast(" ").toIntOrNull()
+                if (number == null) say("Use a task number, for example: complete weekly task 2.")
+                else changeTask("weekly_tasks", number, complete)
+            }
+            lower.startsWith("complete task ") || lower.startsWith("delete task ") -> {
+                val complete = lower.startsWith("complete")
+                val number = command.substringAfterLast(" ").toIntOrNull()
+                if (number == null) say("Use a task number, for example: complete task 2.")
+                else changeTask("tasks", number, complete)
+            }
             lower.startsWith("add task ") || lower.startsWith("task ") -> {
                 val task = command.substringAfter(" ").removePrefix(" ").trim()
-                saveList("tasks", task)
-                say("Task saved.")
+                if (task.isBlank()) say("Tell me what task to save.")
+                else { saveList("tasks", task); say("Task saved.") }
             }
             lower.startsWith("note ") || lower.startsWith("remember ") -> {
                 val note = command.substringAfter(" ").trim()
@@ -532,7 +544,26 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     private fun saveList(key: String, value: String) {
         val old = prefs.getString(key, "").orEmpty()
-        prefs.edit().putString(key, (old + if (old.isBlank()) "" else "\n" + "• " + value).trim()).apply()
+        val next = if (old.isBlank()) "• " + value else old.trimEnd() + "\n• " + value
+        prefs.edit().putString(key, next).apply()
+    }
+
+    private fun changeTask(key: String, number: Int, complete: Boolean) {
+        val lines = prefs.getString(key, "").orEmpty().lines().filter { it.isNotBlank() }.toMutableList()
+        if (number < 1 || number > lines.size) {
+            say("There isn't a task numbered " + number + ".")
+            return
+        }
+        val task = lines[number - 1].removePrefix("• ").removePrefix("✓ ").trim()
+        if (complete) {
+            lines.removeAt(number - 1)
+            prefs.edit().putString(key, lines.joinToString("\n")).apply()
+            say("Completed: " + task + ".")
+        } else {
+            lines.removeAt(number - 1)
+            prefs.edit().putString(key, lines.joinToString("\n")).apply()
+            say("Deleted: " + task + ".")
+        }
     }
 
     private fun showTasks() = say(prefs.getString("tasks", "").takeUnless { it.isNullOrBlank() } ?: "No tasks saved yet.")
