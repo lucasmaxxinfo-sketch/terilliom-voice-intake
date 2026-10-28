@@ -121,6 +121,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             text = "Today's tasks"
             setOnClickListener { showTasks() }
         }
+        val weeklyTasks = Button(this).apply {
+            text = "Weekly tasks"
+            setOnClickListener { showTaskList("weekly_tasks", "No weekly tasks saved.") }
+        }
         val notes = Button(this).apply {
             text = "Notes"
             setOnClickListener { showNotes() }
@@ -129,7 +133,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             text = "Choose files"
             setOnClickListener { chooseFiles() }
         }
-        listOf<View>(title, subtitle, status, transcript, mic, wake, input, run, tasks, notes, files).forEach {
+        listOf<View>(title, subtitle, status, transcript, mic, wake, input, run, tasks, weeklyTasks, notes, files).forEach {
             root.addView(it, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = 10
             })
