@@ -292,7 +292,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 else changeTask("tasks", number, complete)
             }
             lower.startsWith("add task ") || lower.startsWith("task ") -> {
-                val task = command.substringAfter(" ").removePrefix(" ").trim()
+                val task = if (lower.startsWith("add task ")) command.substringAfter("add task ").trim()
+                           else command.substringAfter("task ").trim()
                 if (task.isBlank()) say("Tell me what task to save.")
                 else { saveList("tasks", task); say("Task saved.") }
             }
@@ -304,7 +305,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             lower.startsWith("add weekly task ") -> {
                 saveList("weekly_tasks", command.substringAfter("add weekly task ").trim()); say("Weekly task saved.")
             }
-            lower.startsWith("show weekly tasks") -> say(prefs.getString("weekly_tasks", "").takeUnless { it.isNullOrBlank() } ?: "No weekly tasks saved.")
+            lower.startsWith("show weekly tasks") || lower == "weekly tasks" -> showTaskList("weekly_tasks", "No weekly tasks saved.")
             lower.startsWith("what's on today") || lower.startsWith("today's calendar") || lower.startsWith("what's next") -> showNextCalendarEvent()
             lower.startsWith("show tasks") || lower == "today's tasks" -> showTasks()
             lower.startsWith("show notes") -> showNotes()
@@ -566,7 +567,17 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun showTasks() = say(prefs.getString("tasks", "").takeUnless { it.isNullOrBlank() } ?: "No tasks saved yet.")
+    private fun showTasks() = showTaskList("tasks", "No tasks saved yet.")
+
+    private fun showTaskList(key: String, emptyMessage: String) {
+        val lines = prefs.getString(key, "").orEmpty().lines().filter { it.isNotBlank() }
+        if (lines.isEmpty()) { say(emptyMessage); return }
+        val numbered = lines.mapIndexed { index, line ->
+            (index + 1).toString() + ". " + line.removePrefix("• ").removePrefix("✓ ").trim()
+        }
+        say(numbered.joinToString(". "))
+    }
+
     private fun showNotes() = say(prefs.getString("notes", "").takeUnless { it.isNullOrBlank() } ?: "No notes saved yet.")
 
     private fun createReminderFromCommand(command: String) {
