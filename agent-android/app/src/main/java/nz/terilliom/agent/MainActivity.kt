@@ -369,6 +369,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         say("Thinking.")
         Thread {
             var answer = ""
+            var routedCommand = ""
             var error = ""
             try {
                 val endpoint = java.net.URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent")
@@ -379,23 +380,52 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 connection.setRequestProperty("x-goog-api-key", key)
-                val prompt = "You are Agent, a concise Android personal assistant. User instruction: " + command +
-                    "\nAnswer questions, reason, plan and draft text. Never claim to have performed actions you cannot verify. " +
-                    "You cannot independently inspect files, search Google Drive, or send email. Explain limitations plainly. Keep spoken answers short."
+                val prompt = """You are Agent, an Android personal assistant. Classify the user's request and return ONLY one valid JSON object, no markdown.
+Schema: {"type":"action","command":"one canonical command"} OR {"type":"answer","text":"short helpful response"}.
+Use type action ONLY when the request maps clearly to one supported command. Canonical commands:
+- "add task <task text>" for daily tasks
+- "add weekly task <task text>"
+- "note <note text>" to save a note
+- "show tasks", "show weekly tasks", "show notes"
+- "what's on today" for calendar
+- "remind me in <number> minutes <reminder text>" (or hours/days) for a reminder
+- "remind me at <time> <reminder text>" for a reminder at a time
+- "search maps for <place/address>"
+- "navigate to <place/address>"
+- "open maps", "open gmail", "open calendar", "open drive", "open chrome", "open chatgpt", "open chatgpt voice"
+- "text <contact> saying <message>" to prepare an SMS, never send without the app's confirmation
+- "email to <recipient> subject <subject> saying <body>" to prepare an email
+- "add calendar event <event details>" to prepare a calendar event
+- "check replies from <contact>"
+- "complete task <number>", "delete task <number>", "complete weekly task <number>", "delete weekly task <number>"
+Never invent details. If dates, recipients, times, or task text are unclear, ask a short clarifying question using type answer. For requests that require unsupported abilities, answer honestly. Do not claim an action has happened. Never treat a request to send a message as permission to bypass confirmation.
+User request: """ + command
                 val body = org.json.JSONObject().put("contents",
                     org.json.JSONArray().put(org.json.JSONObject().put("parts",
                         org.json.JSONArray().put(org.json.JSONObject().put("text", prompt)))))
-                    .put("generationConfig", org.json.JSONObject().put("temperature", 0.3).put("maxOutputTokens", 256))
+                    .put("generationConfig", org.json.JSONObject().put("temperature", 0.1).put("maxOutputTokens", 300))
                 connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
                 val code = connection.responseCode
                 val stream = if (code in 200..299) connection.inputStream else connection.errorStream
                 val response = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
                 connection.disconnect()
                 if (code in 200..299) {
-                    answer = org.json.JSONObject(response).optJSONArray("candidates")?.optJSONObject(0)
+                    val text = org.json.JSONObject(response).optJSONArray("candidates")?.optJSONObject(0)
                         ?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)
                         ?.optString("text", "").orEmpty().trim()
-                    if (answer.isBlank()) error = "The AI returned no answer. Try again."
+                    val fence = String(charArrayOf(96, 96, 96))
+                    val jsonText = text.removePrefix(fence + "json").removePrefix(fence).removeSuffix(fence).trim()
+                    val result = org.json.JSONObject(jsonText)
+                    if (result.optString("type") == "action") {
+                        routedCommand = result.optString("command", "").trim()
+                        if (routedCommand.isBlank() || routedCommand.equals(command, true)) {
+                            routedCommand = ""
+                            answer = "I couldn't safely map that to an action. Please say it another way."
+                        }
+                    } else {
+                        answer = result.optString("text", "I couldn't interpret that request.").trim()
+                    }
+                    if (routedCommand.isBlank() && answer.isBlank()) answer = "The AI returned no usable answer. Try again."
                 } else {
                     error = when (code) {
                         400, 401, 403 -> "Gemini rejected the API key or request. Check AI brain settings."
@@ -404,9 +434,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                     }
                 }
             } catch (_: Exception) {
-                error = "Could not reach Gemini. Check internet access and the API key."
+                error = "Could not get a valid response from Gemini. Check internet access, the API key, and try again."
             }
-            runOnUiThread { say(answer.ifBlank { error.ifBlank { "AI request failed." } }) }
+            runOnUiThread {
+                when {
+                    routedCommand.isNotBlank() -> handle(routedCommand)
+                    answer.isNotBlank() -> say(answer)
+                    else -> say(error.ifBlank { "AI request failed." })
+                }
+            }
         }.start()
     }
 
