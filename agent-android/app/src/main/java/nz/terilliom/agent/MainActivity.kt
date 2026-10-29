@@ -419,6 +419,8 @@ Use type action ONLY when the request maps clearly to one supported command. Can
 - "add weekly task <task text>"
 - "note <note text>" to save a note
 - "show tasks", "show weekly tasks", "show notes", "show completed tasks"
+- "start wake listening" to enable the background wake phrase listener
+- "stop wake listening" to disable the background wake phrase listener
 - "what's on today" for calendar
 - "remind me in <number> minutes <reminder text>" or "remind me in <number> hours <reminder text>" for a reminder; do not use days
 - "remind me at <time> <reminder text>" for a reminder at a time
