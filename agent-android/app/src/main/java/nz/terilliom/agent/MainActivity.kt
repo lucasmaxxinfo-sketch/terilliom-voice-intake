@@ -22,6 +22,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private lateinit var status: TextView
     private lateinit var transcript: TextView
     private lateinit var input: EditText
+    private var wakeButton: Button? = null
     private lateinit var tts: TextToSpeech
     private val prefs by lazy { getSharedPreferences("agent", Context.MODE_PRIVATE) }
     private var pendingAction: (() -> Unit)? = null
@@ -50,6 +51,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             intent.removeExtra("agent_wake_detected")
             window.decorView.postDelayed({ listen() }, 500)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        wakeButton?.text = if (prefs.getBoolean("wake_enabled", false)) "Stop wake listening" else "Start wake listening"
     }
 
     private fun buildUi() {
@@ -107,6 +113,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 } else { requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 100); say("Allow microphone access, then tap again.") }
             }
         }
+        wakeButton = wake
         input = EditText(this).apply {
             hint = "Or type an instruction"
             setTextColor(0xFFFFFFFF.toInt())
