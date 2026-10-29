@@ -207,6 +207,30 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val lower = command.lowercase(Locale.getDefault())
         transcript.text = command
         when {
+            lower == "stop wake listening" || lower == "disable wake listening" -> {
+                stopService(Intent(this, WakeWordService::class.java))
+                prefs.edit().putBoolean("wake_enabled", false).apply()
+                wakeButton?.text = "Start wake listening"
+                say("Wake listening stopped.")
+            }
+            lower == "start wake listening" || lower == "enable wake listening" -> {
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 100)
+                    say("Allow microphone access, then say start wake listening again.")
+                } else {
+                    try {
+                        val serviceIntent = Intent(this, WakeWordService::class.java)
+                        if (Build.VERSION.SDK_INT >= 26) startForegroundService(serviceIntent) else startService(serviceIntent)
+                        prefs.edit().putBoolean("wake_enabled", true).apply()
+                        wakeButton?.text = "Stop wake listening"
+                        say("Wake listening started. Say Oi Agent.")
+                    } catch (_: Exception) {
+                        prefs.edit().putBoolean("wake_enabled", false).apply()
+                        wakeButton?.text = "Start wake listening"
+                        say("Android blocked background listening. Tap the microphone instead.")
+                    }
+                }
+            }
             lower.startsWith("search maps for ") || lower.startsWith("open google maps and search for ") -> {
                 val address = command.substringAfter("for ", "").trim()
                 val uri = Uri.parse("geo:0,0?q=" + Uri.encode(address))
