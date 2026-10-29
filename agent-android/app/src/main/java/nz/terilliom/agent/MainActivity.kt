@@ -317,6 +317,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             lower.startsWith("what's on today") || lower.startsWith("today's calendar") || lower.startsWith("what's next") -> showNextCalendarEvent()
             lower.startsWith("show tasks") || lower == "today's tasks" -> showTasks()
             lower.startsWith("show notes") -> showNotes()
+            lower == "show completed tasks" || lower == "completed tasks" -> showCompletedTasks()
             lower.startsWith("add calendar event ") || lower.startsWith("schedule ") -> scheduleCalendarEvent(command)
             lower == "yes" || lower == "yep" || lower == "ok" || lower == "confirm" || lower == "send it" -> {
                 val action = pendingAction
@@ -386,7 +387,7 @@ Use type action ONLY when the request maps clearly to one supported command. Can
 - "add task <task text>" for daily tasks
 - "add weekly task <task text>"
 - "note <note text>" to save a note
-- "show tasks", "show weekly tasks", "show notes"
+- "show tasks", "show weekly tasks", "show notes", "show completed tasks"
 - "what's on today" for calendar
 - "remind me in <number> minutes <reminder text>" or "remind me in <number> hours <reminder text>" for a reminder; do not use days
 - "remind me at <time> <reminder text>" for a reminder at a time
@@ -709,6 +710,14 @@ User request: """ + command
     }
 
     private fun showNotes() = say(prefs.getString("notes", "").takeUnless { it.isNullOrBlank() } ?: "No notes saved yet.")
+
+    private fun showCompletedTasks() {
+        val daily = prefs.getString("completed_tasks", "").orEmpty().lines().filter { it.isNotBlank() }
+        val weekly = prefs.getString("completed_weekly_tasks", "").orEmpty().lines().filter { it.isNotBlank() }
+        val all = daily.map { "Daily: " + it.removePrefix("✓ ").trim() } +
+            weekly.map { "Weekly: " + it.removePrefix("✓ ").trim() }
+        say(if (all.isEmpty()) "No completed tasks archived yet." else all.joinToString(". "))
+    }
 
     private fun createReminderFromCommand(command: String) {
         val match = Regex("(?i)remind me in (\\d+)\\s*(minute|minutes|min|hour|hours)\\s*(?:to)?\\s*(.*)").find(command)
