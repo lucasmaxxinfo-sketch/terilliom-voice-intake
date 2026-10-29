@@ -404,7 +404,7 @@ User request: """ + command
                 val body = org.json.JSONObject().put("contents",
                     org.json.JSONArray().put(org.json.JSONObject().put("parts",
                         org.json.JSONArray().put(org.json.JSONObject().put("text", prompt)))))
-                    .put("generationConfig", org.json.JSONObject().put("temperature", 0.1).put("maxOutputTokens", 300))
+                    .put("generationConfig", org.json.JSONObject().put("temperature", 0.1).put("maxOutputTokens", 300).put("responseMimeType", "application/json"))
                 connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
                 val code = connection.responseCode
                 val stream = if (code in 200..299) connection.inputStream else connection.errorStream
