@@ -330,57 +330,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
 
-    private fun askAiForInstruction(command: String) {
-        val key = prefs.getString("gemini_api_key", "").orEmpty().trim()
-        if (key.isBlank()) {
-            say("The AI brain is not connected. Open AI brain settings to add a Gemini API key.")
-            return
-        }
-        say("Thinking.")
-        Thread {
-            var answer = ""
-            var error = ""
-            try {
-                val endpoint = java.net.URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent")
-                val connection = endpoint.openConnection() as java.net.HttpURLConnection
-                connection.requestMethod = "POST"
-                connection.connectTimeout = 15000
-                connection.readTimeout = 30000
-                connection.doOutput = true
-                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                connection.setRequestProperty("x-goog-api-key", key)
-                val prompt = "You are Agent, a concise Android personal assistant. User instruction: " + command +
-                    "\nAnswer questions, reason, plan and draft text. Never claim to have performed actions you cannot verify. " +
-                    "You cannot independently inspect files, search Google Drive, or send email. Explain limitations plainly. Keep spoken answers short."
-                val body = org.json.JSONObject().put("contents",
-                    org.json.JSONArray().put(org.json.JSONObject().put("parts",
-                        org.json.JSONArray().put(org.json.JSONObject().put("text", prompt)))))
-                    .put("generationConfig", org.json.JSONObject().put("temperature", 0.3).put("maxOutputTokens", 256))
-                connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-                val code = connection.responseCode
-                val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-                val response = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-                connection.disconnect()
-                if (code in 200..299) {
-                    answer = org.json.JSONObject(response).optJSONArray("candidates")?.optJSONObject(0)
-                        ?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)
-                        ?.optString("text", "").orEmpty().trim()
-                    if (answer.isBlank()) error = "The AI returned no answer. Try again."
-                } else {
-                    error = when (code) {
-                        400, 401, 403 -> "Gemini rejected the API key or request. Check AI brain settings."
-                        429 -> "Gemini usage limit reached. Check the Google AI Studio quota."
-                        else -> "Gemini connection failed with error " + code + "."
-                    }
-                }
-            } catch (_: Exception) {
-                error = "Could not reach Gemini. Check internet access and the API key."
-            }
-            runOnUiThread { say(answer.ifBlank { error.ifBlank { "AI request failed." } }) }
-        }.start()
-    }
-
-
     private fun configureAiBrain() {
         val field = EditText(this).apply {
             hint = "Gemini API key"
