@@ -129,11 +129,15 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             text = "Notes"
             setOnClickListener { showNotes() }
         }
+        val ai = Button(this).apply {
+            text = if (prefs.getString("gemini_api_key", "").isNullOrBlank()) "Connect AI brain" else "AI brain settings"
+            setOnClickListener { configureAiBrain() }
+        }
         val files = Button(this).apply {
             text = "Choose files"
             setOnClickListener { chooseFiles() }
         }
-        listOf<View>(title, subtitle, status, transcript, mic, wake, input, run, tasks, weeklyTasks, notes, files).forEach {
+        listOf<View>(title, subtitle, status, transcript, mic, wake, input, run, tasks, weeklyTasks, notes, ai, files).forEach {
             root.addView(it, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = 10
             })
@@ -321,8 +325,140 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             lower == "no" || lower == "nope" || lower == "cancel" -> {
                 pendingAction = null; say("Cancelled.")
             }
-            else -> say("I can take notes, add tasks, set reminders, open ChatGPT, search Maps and start navigation. That action isn't connected yet.")
+            else -> askAiForInstruction(command)
         }
+    }
+
+
+    private fun askAiForInstruction(command: String) {
+        val key = prefs.getString("gemini_api_key", "").orEmpty().trim()
+        if (key.isBlank()) {
+            say("The AI brain is not connected. Open AI brain settings to add a Gemini API key.")
+            return
+        }
+        say("Thinking.")
+        Thread {
+            var answer = ""
+            var error = ""
+            try {
+                val endpoint = java.net.URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent")
+                val connection = endpoint.openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.connectTimeout = 15000
+                connection.readTimeout = 30000
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                connection.setRequestProperty("x-goog-api-key", key)
+                val prompt = "You are Agent, a concise Android personal assistant. User instruction: " + command +
+                    "\nAnswer questions, reason, plan and draft text. Never claim to have performed actions you cannot verify. " +
+                    "You cannot independently inspect files, search Google Drive, or send email. Explain limitations plainly. Keep spoken answers short."
+                val body = org.json.JSONObject().put("contents",
+                    org.json.JSONArray().put(org.json.JSONObject().put("parts",
+                        org.json.JSONArray().put(org.json.JSONObject().put("text", prompt)))))
+                    .put("generationConfig", org.json.JSONObject().put("temperature", 0.3).put("maxOutputTokens", 256))
+                connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+                val code = connection.responseCode
+                val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+                val response = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                connection.disconnect()
+                if (code in 200..299) {
+                    answer = org.json.JSONObject(response).optJSONArray("candidates")?.optJSONObject(0)
+                        ?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)
+                        ?.optString("text", "").orEmpty().trim()
+                    if (answer.isBlank()) error = "The AI returned no answer. Try again."
+                } else {
+                    error = when (code) {
+                        400, 401, 403 -> "Gemini rejected the API key or request. Check AI brain settings."
+                        429 -> "Gemini usage limit reached. Check the Google AI Studio quota."
+                        else -> "Gemini connection failed with error " + code + "."
+                    }
+                }
+            } catch (_: Exception) {
+                error = "Could not reach Gemini. Check internet access and the API key."
+            }
+            runOnUiThread { say(answer.ifBlank { error.ifBlank { "AI request failed." } }) }
+        }.start()
+    }
+
+
+    private fun configureAiBrain() {
+        val field = EditText(this).apply {
+            hint = "Gemini API key"
+            setSingleLine(true)
+            setText(prefs.getString("gemini_api_key", "").orEmpty())
+        }
+        val info = TextView(this).apply {
+            text = "Connect Gemini so Agent can answer questions and understand unfamiliar instructions. Create a key in Google AI Studio. The key stays on this phone and is sent to Google when used."
+            setPadding(24, 12, 24, 12)
+        }
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(info)
+            addView(field)
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Connect Agent's AI brain")
+            .setView(panel)
+            .setPositiveButton("Save") { _, _ ->
+                prefs.edit().putString("gemini_api_key", field.text.toString().trim()).apply()
+                say(if (field.text.toString().isBlank()) "AI key cleared." else "AI key saved on this phone.")
+            }
+            .setNeutralButton("Get API key") { _, _ ->
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey")))
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+
+    private fun askAiForInstruction(command: String) {
+        val key = prefs.getString("gemini_api_key", "").orEmpty().trim()
+        if (key.isBlank()) {
+            say("The AI brain is not connected. Open AI brain settings to add a Gemini API key.")
+            return
+        }
+        say("Thinking.")
+        Thread {
+            var answer = ""
+            var error = ""
+            try {
+                val endpoint = java.net.URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent")
+                val connection = endpoint.openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.connectTimeout = 15000
+                connection.readTimeout = 30000
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                connection.setRequestProperty("x-goog-api-key", key)
+                val prompt = "You are Agent, a concise Android personal assistant. User instruction: " + command +
+                    "\nAnswer questions, reason, plan and draft text. Never claim to have performed actions you cannot verify. " +
+                    "You cannot independently inspect files, search Google Drive, or send email. Explain limitations plainly. Keep spoken answers short."
+                val body = org.json.JSONObject().put("contents",
+                    org.json.JSONArray().put(org.json.JSONObject().put("parts",
+                        org.json.JSONArray().put(org.json.JSONObject().put("text", prompt)))))
+                    .put("generationConfig", org.json.JSONObject().put("temperature", 0.3).put("maxOutputTokens", 256))
+                connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+                val code = connection.responseCode
+                val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+                val response = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                connection.disconnect()
+                if (code in 200..299) {
+                    answer = org.json.JSONObject(response).optJSONArray("candidates")?.optJSONObject(0)
+                        ?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)
+                        ?.optString("text", "").orEmpty().trim()
+                    if (answer.isBlank()) error = "The AI returned no answer. Try again."
+                } else {
+                    error = when (code) {
+                        400, 401, 403 -> "Gemini rejected the API key or request. Check AI brain settings."
+                        429 -> "Gemini usage limit reached. Check the Google AI Studio quota."
+                        else -> "Gemini connection failed with error " + code + "."
+                    }
+                }
+            } catch (_: Exception) {
+                error = "Could not reach Gemini. Check internet access and the API key."
+            }
+            runOnUiThread { say(answer.ifBlank { error.ifBlank { "AI request failed." } }) }
+        }.start()
     }
 
     private fun openApp(packageName: String, label: String) {
