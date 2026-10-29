@@ -413,7 +413,7 @@ User request: """ + command
                     val text = org.json.JSONObject(response).optJSONArray("candidates")?.optJSONObject(0)
                         ?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)
                         ?.optString("text", "").orEmpty().trim()
-                    val fence = String(charArrayOf(96, 96, 96))
+                    val fence = 96.toChar().toString().repeat(3)
                     val jsonText = text.removePrefix(fence + "json").removePrefix(fence).removeSuffix(fence).trim()
                     val result = org.json.JSONObject(jsonText)
                     if (result.optString("type") == "action") {
