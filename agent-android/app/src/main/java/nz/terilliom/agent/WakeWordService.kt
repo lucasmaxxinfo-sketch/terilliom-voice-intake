@@ -58,6 +58,7 @@ class WakeWordService : Service() {
                     val words = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
                     val wake = words.firstOrNull { it.lowercase(Locale.getDefault()).contains("oi agent") || it.lowercase(Locale.getDefault()).contains("hey agent") }
                     if (wake != null) {
+                        getSharedPreferences("agent", Context.MODE_PRIVATE).edit().putBoolean("wake_enabled", false).apply()
                         running = false
                         recognizer?.destroy(); recognizer = null
                         val launch = Intent(this@WakeWordService, MainActivity::class.java)
