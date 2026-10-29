@@ -388,13 +388,13 @@ Use type action ONLY when the request maps clearly to one supported command. Can
 - "note <note text>" to save a note
 - "show tasks", "show weekly tasks", "show notes"
 - "what's on today" for calendar
-- "remind me in <number> minutes <reminder text>" (or hours/days) for a reminder
+- "remind me in <number> minutes <reminder text>" or "remind me in <number> hours <reminder text>" for a reminder; do not use days
 - "remind me at <time> <reminder text>" for a reminder at a time
 - "search maps for <place/address>"
 - "navigate to <place/address>"
 - "open maps", "open gmail", "open calendar", "open drive", "open chrome", "open chatgpt", "open chatgpt voice"
 - "text <contact> saying <message>" to prepare an SMS, never send without the app's confirmation
-- "email to <recipient> subject <subject> saying <body>" to prepare an email
+- "email to <recipient> subject <subject> body <body>" to prepare an email
 - "add calendar event <event details>" to prepare a calendar event
 - "check replies from <contact>"
 - "complete task <number>", "delete task <number>", "complete weekly task <number>", "delete weekly task <number>"
@@ -681,12 +681,17 @@ User request: """ + command
             return
         }
         val task = lines[number - 1].removePrefix("• ").removePrefix("✓ ").trim()
+        lines.removeAt(number - 1)
         if (complete) {
-            lines.removeAt(number - 1)
-            prefs.edit().putString(key, lines.joinToString("\n")).apply()
-            say("Completed: " + task + ".")
+            val completedKey = if (key == "weekly_tasks") "completed_weekly_tasks" else "completed_tasks"
+            val completed = prefs.getString(completedKey, "").orEmpty()
+            val entry = "✓ " + task
+            prefs.edit()
+                .putString(key, lines.joinToString("\n"))
+                .putString(completedKey, if (completed.isBlank()) entry else completed.trimEnd() + "\n" + entry)
+                .apply()
+            say("Completed and archived: " + task + ".")
         } else {
-            lines.removeAt(number - 1)
             prefs.edit().putString(key, lines.joinToString("\n")).apply()
             say("Deleted: " + task + ".")
         }
