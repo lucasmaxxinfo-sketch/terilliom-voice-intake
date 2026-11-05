@@ -1,5 +1,5 @@
 {
-  "name": "tanstack_start_ts",
+  "name": "terilliom-intake",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -9,7 +9,9 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "check": "bun run build && bun run typecheck && bun run lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -68,7 +70,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
-    "@lovable.dev/vite-tanstack-config": "2.7.0",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
