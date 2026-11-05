@@ -2,3 +2,5 @@
 registry = "https://registry.npmjs.org"
 # 24h supply-chain guard: skip package versions published less than a day ago.
 minimumReleaseAge = 86400
+
+# Keep package sources on the public npm registry, independent of any builder cache.
