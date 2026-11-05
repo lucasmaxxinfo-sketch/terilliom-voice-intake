@@ -20,7 +20,7 @@ This project uses open-source tooling directly through GitHub:
 - React and TypeScript
 - TanStack Start and Router
 - Vite, Tailwind CSS, and Nitro
-- Bun
+- Bun (public npm registry; no builder package mirror)
 - Native Android Gradle build
 
 Install [Bun](https://bun.sh/), then run:
