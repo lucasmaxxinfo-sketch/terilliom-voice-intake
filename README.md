@@ -55,4 +55,4 @@ No API keys or secrets belong in source control. Android permissions and accessi
 
 ## Licence
 
-Released under the MIT licence. See [LICENSE](LICENSE).
+Released under the MIT licence. See [LICENSE](LICENSE.md).
