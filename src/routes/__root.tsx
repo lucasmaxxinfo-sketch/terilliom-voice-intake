@@ -10,7 +10,6 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 import { registerServiceWorker } from "../lib/pwa/register-sw";
 
 function NotFoundComponent() {
@@ -36,10 +35,8 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+  console.error(error);
   const router = useRouter();
-  useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background px-4">
@@ -112,8 +109,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "Terilliom Intake is an offline-first, voice-driven inventory intake app for workshops, warehouses and service businesses." },
       { property: "og:description", content: "Terilliom Intake is an offline-first, voice-driven inventory intake app for workshops, warehouses and service businesses." },
       { name: "twitter:description", content: "Terilliom Intake is an offline-first, voice-driven inventory intake app for workshops, warehouses and service businesses." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f2ab16f4-61a7-4b9b-8fe6-d213f90653bb/id-preview-bbad87c8--fbc828ea-68f4-46b9-9d23-46ac5d98435d.lovable.app-1783151506893.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f2ab16f4-61a7-4b9b-8fe6-d213f90653bb/id-preview-bbad87c8--fbc828ea-68f4-46b9-9d23-46ac5d98435d.lovable.app-1783151506893.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
