@@ -1,0 +1,42 @@
+name: Refresh Bun lockfile
+
+on:
+  push:
+    branches:
+      - github-native-foundation
+    paths:
+      - package.json
+      - bunfig.toml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    name: Keep dependency lockfile in sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Regenerate lockfile
+        run: bun install --lockfile-only
+
+      - name: Commit lockfile update
+        run: |
+          if git diff --quiet -- bun.lock; then
+            echo "Lockfile already matches package.json"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bun.lock
+          git commit -m "chore: refresh Bun lockfile [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
