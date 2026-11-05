@@ -26,8 +26,10 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Regenerate lockfile
-        run: bun install --lockfile-only
+      - name: Regenerate lockfile from the public registry
+        run: |
+          rm -f bun.lock
+          bun install --lockfile-only
 
       - name: Commit lockfile update
         run: |
