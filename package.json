@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check": "bun run build && bun run typecheck && bun run lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
